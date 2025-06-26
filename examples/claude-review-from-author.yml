@@ -23,9 +23,8 @@ jobs:
           fetch-depth: 1
 
       - name: Review PR from Specific Author
-        uses: anthropics/claude-code-action@beta
+        uses: kouznetsov1/claude-code-action@main
         with:
-          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           timeout_minutes: "60"
           direct_prompt: |
             Please provide a thorough review of this pull request.
