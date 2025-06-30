@@ -9,6 +9,10 @@ import fetch from "node-fetch";
 import { GITHUB_API_URL } from "../github/api/config";
 import { Octokit } from "@octokit/rest";
 import { updateClaudeComment } from "../github/operations/comments/update-claude-comment";
+import { exec } from "child_process";
+import { promisify } from "util";
+
+const execCommand = promisify(exec);
 
 type GitHubRef = {
   object: {
@@ -46,6 +50,120 @@ if (!REPO_OWNER || !REPO_NAME || !BRANCH_NAME) {
     "Error: REPO_OWNER, REPO_NAME, and BRANCH_NAME environment variables are required",
   );
   process.exit(1);
+}
+
+// Validation configuration and utilities
+interface ValidationConfig {
+  lint?: string[];
+  build?: string[];
+  test?: string[];
+  maxRetries?: number;
+}
+
+async function readValidationConfig(): Promise<ValidationConfig | null> {
+  try {
+    const configPath = join(REPO_DIR, '.claude-validation.yml');
+    const configContent = await readFile(configPath, 'utf-8');
+    // Simple YAML parsing for basic config
+    const config: ValidationConfig = {};
+    const lines = configContent.split('\n');
+    let currentSection: keyof ValidationConfig | null = null;
+    
+    for (const line of lines) {
+      const trimmed = line.trim();
+      if (trimmed.endsWith(':') && !trimmed.includes(' ')) {
+        currentSection = trimmed.slice(0, -1) as keyof ValidationConfig;
+        if (currentSection === 'lint' || currentSection === 'build' || currentSection === 'test') {
+          config[currentSection] = [];
+        }
+      } else if (currentSection && trimmed.startsWith('- ')) {
+        const value = trimmed.slice(2).trim();
+        if (currentSection === 'lint' || currentSection === 'build' || currentSection === 'test') {
+          config[currentSection]!.push(value);
+        } else if (currentSection === 'maxRetries') {
+          config.maxRetries = parseInt(value);
+        }
+      }
+    }
+    
+    return config;
+  } catch (error) {
+    // No config file or invalid config
+    return null;
+  }
+}
+
+async function runValidationCommand(command: string, retries: number = 0): Promise<{ success: boolean; output: string }> {
+  try {
+    const { stdout, stderr } = await execCommand(command, {
+      cwd: REPO_DIR,
+      maxBuffer: 10 * 1024 * 1024, // 10MB buffer
+    });
+    return {
+      success: true,
+      output: stdout + (stderr ? `\nWarnings:\n${stderr}` : ''),
+    };
+  } catch (error: any) {
+    if (retries > 0) {
+      console.log(`Validation command failed, retrying... (${retries} retries left)`);
+      // Wait a bit before retrying
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      return runValidationCommand(command, retries - 1);
+    }
+    return {
+      success: false,
+      output: error.stdout + '\n' + error.stderr,
+    };
+  }
+}
+
+async function validateBeforeCommit(files: string[]): Promise<{ valid: boolean; errors: string[] }> {
+  const config = await readValidationConfig();
+  if (!config) {
+    // No validation config, proceed without validation
+    return { valid: true, errors: [] };
+  }
+  
+  const errors: string[] = [];
+  const maxRetries = config.maxRetries || 1;
+  
+  // Run lint commands
+  if (config.lint && config.lint.length > 0) {
+    console.log('Running lint validation...');
+    for (const lintCmd of config.lint) {
+      const result = await runValidationCommand(lintCmd, maxRetries);
+      if (!result.success) {
+        errors.push(`Lint failed: ${lintCmd}\n${result.output}`);
+      }
+    }
+  }
+  
+  // Run build commands
+  if (config.build && config.build.length > 0) {
+    console.log('Running build validation...');
+    for (const buildCmd of config.build) {
+      const result = await runValidationCommand(buildCmd, maxRetries);
+      if (!result.success) {
+        errors.push(`Build failed: ${buildCmd}\n${result.output}`);
+      }
+    }
+  }
+  
+  // Run test commands (optional, only if specified)
+  if (config.test && config.test.length > 0) {
+    console.log('Running test validation...');
+    for (const testCmd of config.test) {
+      const result = await runValidationCommand(testCmd, 0); // No retries for tests
+      if (!result.success) {
+        errors.push(`Tests failed: ${testCmd}\n${result.output}`);
+      }
+    }
+  }
+  
+  return {
+    valid: errors.length === 0,
+    errors,
+  };
 }
 
 const server = new McpServer({
@@ -119,6 +237,14 @@ server.tool(
       const baseTreeSha = commitData.tree.sha;
 
       // 3. Create tree entries for all files
+      // Validate before creating commit
+      const validation = await validateBeforeCommit(processedFiles);
+      if (!validation.valid) {
+        throw new Error(
+          `Validation failed. Please fix the following issues before committing:\n\n${validation.errors.join('\n\n')}\n\nTo configure validation, create a .claude-validation.yml file in your repository root.`
+        );
+      }
+
       const treeEntries = await Promise.all(
         processedFiles.map(async (filePath) => {
           const fullPath = filePath.startsWith("/")

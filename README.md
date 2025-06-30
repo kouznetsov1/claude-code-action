@@ -337,6 +337,40 @@ This action is built on top of [`anthropics/claude-code-base-action`](https://gi
 
 ## Advanced Configuration
 
+### Automatic Validation Before Commits
+
+Claude can automatically validate code changes before committing them by running lint and build commands. This ensures all commits pass your project's quality checks.
+
+To enable validation, create a `.claude-validation.yml` file in your repository root:
+
+```yaml
+# Lint commands - run code style checks
+lint:
+  - npm run lint
+  - npm run format:check
+
+# Build commands - ensure the project compiles
+build:
+  - npm run build
+  - npm run typecheck
+
+# Test commands (optional) - run test suites
+test:
+  - npm test
+
+# Maximum retries for transient failures (default: 1)
+maxRetries: 2
+```
+
+When Claude attempts to commit files:
+1. It reads the validation configuration
+2. Runs all lint commands, then build commands, then tests (if configured)
+3. If any command fails, it retries up to `maxRetries` times
+4. If validation still fails, Claude sees the error output and can fix the issues
+5. Claude iterates on fixes until validation passes
+
+See [`.claude-validation.yml.example`](./.claude-validation.yml.example) for examples with different project types (Python, Go, Ruby, etc.).
+
 ### Custom Environment Variables
 
 You can pass custom environment variables to Claude Code execution using the `claude_env` input. This is useful for CI/test setups that require specific environment variables:

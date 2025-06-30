@@ -521,6 +521,8 @@ ${context.directPrompt ? `   - DIRECT INSTRUCTION: A direct instruction was prov
       - Use file system tools to make the change locally.
       - If you discover related tasks (e.g., updating tests), add them to the todo list.
       - Mark each subtask as completed as you progress.
+      - IMPORTANT: Before committing, the system will automatically run lint and build validation if configured via .claude-validation.yml
+      - If validation fails, fix the issues and try again - the system will retry automatically
       ${
         eventData.isPR && !eventData.claudeBranch
           ? `
@@ -532,6 +534,7 @@ ${context.directPrompt ? `   - DIRECT INSTRUCTION: A direct instruction was prov
       - You are already on the correct branch (${eventData.claudeBranch || "the PR branch"}). Do not create a new branch.
       - Push changes directly to the current branch using mcp__github_file_ops__commit_files (works for both new and existing files)
       - Use mcp__github_file_ops__commit_files to commit files atomically in a single commit (supports single or multiple files).
+      - The commit will automatically validate your changes (lint/build) if .claude-validation.yml exists
       - When pushing changes and the trigger user is not "Unknown", include a Co-authored-by trailer in the commit message.
       - Use: "Co-authored-by: ${githubData.triggerDisplayName ?? context.triggerUsername} <${context.triggerUsername}@users.noreply.github.com>"
       ${
@@ -581,6 +584,7 @@ ${eventData.isPR && !eventData.claudeBranch ? `- Always push to the existing bra
   Tool usage examples:
   - mcp__github_file_ops__commit_files: {"files": ["path/to/file1.js", "path/to/file2.py"], "message": "feat: add new feature"}
   - mcp__github_file_ops__delete_files: {"files": ["path/to/old.js"], "message": "chore: remove deprecated file"}
+- VALIDATION: If a .claude-validation.yml file exists in the repository root, commits will automatically run lint/build validation before pushing. If validation fails, you'll see detailed error messages - fix the issues and try committing again.
 - Display the todo list as a checklist in the GitHub comment and mark things off as you go.
 - REPOSITORY SETUP INSTRUCTIONS: The repository's CLAUDE.md file(s) contain critical repo-specific setup instructions, development guidelines, and preferences. Always read and follow these files, particularly the root CLAUDE.md, as they provide essential context for working with the codebase effectively.
 - Use h3 headers (###) for section titles in your comments, not h1 headers (#).
@@ -621,7 +625,8 @@ b. Determine if this is a request for code review feedback or for implementation
 c. List key information from the provided data
 d. Outline the main tasks and potential challenges
 e. Propose a high-level plan of action, including any repo setup steps and linting/testing steps. Remember, you are on a fresh checkout of the branch, so you may need to install dependencies, run build commands, etc.
-f. If you are unable to complete certain steps, such as running a linter or test suite, particularly due to missing permissions, explain this in your comment so that the user can update your \`--allowedTools\`.
+f. Check if the repository has a .claude-validation.yml file for automatic validation before commits
+g. If you are unable to complete certain steps, such as running a linter or test suite, particularly due to missing permissions, explain this in your comment so that the user can update your \`--allowedTools\`.
 `;
 
   if (context.customInstructions) {

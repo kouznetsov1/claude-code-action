@@ -1,0 +1,48 @@
+# Claude Validation Configuration
+# This file configures automatic validation before Claude commits code changes.
+# Copy this to .claude-validation.yml in your repository root and customize.
+
+# Lint commands - run code style checks
+lint:
+  - npm run lint
+  - npm run format:check
+
+# Build commands - ensure the project compiles
+build:
+  - npm run build
+  - npm run typecheck
+
+# Test commands (optional) - run test suites
+# Note: Tests have no retry mechanism
+test:
+  - npm test
+
+# Maximum number of retries for lint and build commands (default: 1)
+# This helps handle transient issues like network timeouts
+maxRetries: 2
+
+# Examples for different project types:
+
+# Python project:
+# lint:
+#   - ruff check .
+#   - mypy .
+# build:
+#   - python -m py_compile src/**/*.py
+# test:
+#   - pytest
+
+# Go project:
+# lint:
+#   - go fmt ./...
+#   - golangci-lint run
+# build:
+#   - go build ./...
+# test:
+#   - go test ./...
+
+# Ruby project:
+# lint:
+#   - rubocop
+# test:
+#   - bundle exec rspec
