@@ -33,6 +33,6 @@ jobs:
         id: claude
         uses: kouznetsov1/claude-code-action@main
         with:
-          allowed_tools: "Bash(bun install),Bash(bun test:*),Bash(bun run format),Bash(bun typecheck)"
-          custom_instructions: "You have also been granted tools for editing files and running bun commands (install, run, test, typecheck) for testing your changes: bun install, bun test, bun run format, bun typecheck."
+          allowed_tools: "Bash(bun install),Bash(bun test:*),Bash(bun run format),Bash(bun typecheck),Bash(pnpm install),Bash(pnpm test:*),Bash(pnpm run format),Bash(pnpm typecheck)"
+          custom_instructions: "You have also been granted tools for editing files and running both bun and pnpm commands (install, run, test, typecheck) for testing your changes: bun install, bun test, bun run format, bun typecheck, pnpm install, pnpm test, pnpm run format, pnpm typecheck."
           model: "claude-opus-4-20250514"
