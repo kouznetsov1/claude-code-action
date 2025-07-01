@@ -127,17 +127,6 @@ async function validateBeforeCommit(files: string[]): Promise<{ valid: boolean; 
   const errors: string[] = [];
   const maxRetries = config.maxRetries || 1;
   
-  // Run lint commands
-  if (config.lint && config.lint.length > 0) {
-    console.log('Running lint validation...');
-    for (const lintCmd of config.lint) {
-      const result = await runValidationCommand(lintCmd, maxRetries);
-      if (!result.success) {
-        errors.push(`Lint failed: ${lintCmd}\n${result.output}`);
-      }
-    }
-  }
-  
   // Run build commands
   if (config.build && config.build.length > 0) {
     console.log('Running build validation...');
@@ -145,6 +134,17 @@ async function validateBeforeCommit(files: string[]): Promise<{ valid: boolean; 
       const result = await runValidationCommand(buildCmd, maxRetries);
       if (!result.success) {
         errors.push(`Build failed: ${buildCmd}\n${result.output}`);
+      }
+    }
+  }
+
+  // Run lint commands
+  if (config.lint && config.lint.length > 0) {
+    console.log('Running lint validation...');
+    for (const lintCmd of config.lint) {
+      const result = await runValidationCommand(lintCmd, maxRetries);
+      if (!result.success) {
+        errors.push(`Lint failed: ${lintCmd}\n${result.output}`);
       }
     }
   }
