@@ -57,6 +57,7 @@ interface ValidationConfig {
   lint?: string[];
   build?: string[];
   test?: string[];
+  postbuild?: string[];
   maxRetries?: number;
 }
 
@@ -73,12 +74,12 @@ async function readValidationConfig(): Promise<ValidationConfig | null> {
       const trimmed = line.trim();
       if (trimmed.endsWith(':') && !trimmed.includes(' ')) {
         currentSection = trimmed.slice(0, -1) as keyof ValidationConfig;
-        if (currentSection === 'lint' || currentSection === 'build' || currentSection === 'test') {
+        if (currentSection === 'lint' || currentSection === 'build' || currentSection === 'test' || currentSection === 'postbuild') {
           config[currentSection] = [];
         }
       } else if (currentSection && trimmed.startsWith('- ')) {
         const value = trimmed.slice(2).trim();
-        if (currentSection === 'lint' || currentSection === 'build' || currentSection === 'test') {
+        if (currentSection === 'lint' || currentSection === 'build' || currentSection === 'test' || currentSection === 'postbuild') {
           config[currentSection]!.push(value);
         } else if (currentSection === 'maxRetries') {
           config.maxRetries = parseInt(value);
@@ -156,6 +157,17 @@ async function validateBeforeCommit(files: string[]): Promise<{ valid: boolean; 
       const result = await runValidationCommand(testCmd, 0); // No retries for tests
       if (!result.success) {
         errors.push(`Tests failed: ${testCmd}\n${result.output}`);
+      }
+    }
+  }
+
+
+  if (config.postbuild && config.postbuild.length > 0) {
+    console.log('Running postbuild commands...');
+    for (const postbuildCmd of config.postbuild) {
+      const result = await runValidationCommand(postbuildCmd, 0); // No retries for postbuild
+      if (!result.success) {
+        errors.push(`Postbuild failed: ${postbuildCmd}\n${result.output}`);
       }
     }
   }
